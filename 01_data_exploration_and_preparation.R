@@ -64,4 +64,53 @@ clean <- copy(raw)[# clean admission time and separation time so that it is POSI
 # [NOTE] primary key: insurer_id, episode_id, admission_provider_id, admission_date
 clean[, .N, by = .(insurer_id, episode_id, admission_provider_id, admission_date)][N>1]
 
+# data quality issues ----------------------------------------------------------
+
+## 1. invalid pharmacy_charge values -------------------------------------------
+
+# summary stats for each column - pharmarcy_charage contains invalid values
+summary(clean)
+
+# determine min/max of pharmarcy_charge column
+# max is 2.130293e+130
+# min is 1.079388e+13
+max(clean$pharmacy_charge, na.rm = T) 
+min(clean$pharmacy_charge, na.rm = T) 
+
+# [NOTE] The whole column looks wrong so will omit pharmarcy charges from analysis
+# TODO: Analysis should be revisted after consulting with data owners on how this data is collected, unrealistic values captured and implementing data validation checks
+clean <- clean[, pharmacy_charge := NULL]
+
+## 2. missing value treatment --------------------------------------------------
+
+# identify columns with missing values
+colSums(is.na(clean))
+
+# missing value treatment for numeric variables: 0 if na
+clean <- clean[
+  , `:=` (
+    ccu_charges = fcoalesce(ccu_charges, 0)
+    , icu_charge = fcoalesce(icu_charge, 0)
+    , theatre_charge = fcoalesce(theatre_charge, 0)
+    , prosthesis_charge = fcoalesce(prosthesis_charge, 0)
+    , other_charges = fcoalesce(other_charges, 0)
+    , bundled_charges = fcoalesce(bundled_charges, 0)
+    , infant_weight = fcoalesce(infant_weight, 0)
+    , hours_mech_ventilation = fcoalesce(hours_mech_ventilation, 0)
+  )
+]
+
+# missing value treatment for character variables: data unavailable if na 
+clean <- clean[
+  , `:=` (
+    unplanned_theatre_visit = fcoalesce(unplanned_theatre_visit, "Data unavailable")
+    , readmission28days = fcoalesce(readmission28days, "Data unavailable")
+    , palliative_care_status = fcoalesce(palliative_care_status, "Data unavailable")
+  )
+]
+
+# check there are no more missing values in data 
+colSums(is.na(clean))
+clean[, .N, .(unplanned_theatre_visit)]
+
 
