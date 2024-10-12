@@ -3,8 +3,7 @@
 # set working directory
 setwd("C:\\Users\\linGG\\OneDrive\\Documents\\Tim's Personal Work\\2024\\ramsay_health")
 
-# install.packages
-
+# install packages
 # install.packages("dplyr")
 # install.packages("tidyr")
 # install.packages("stringr")
@@ -15,7 +14,6 @@ setwd("C:\\Users\\linGG\\OneDrive\\Documents\\Tim's Personal Work\\2024\\ramsay_
 # install.packages("janitor")
 
 # load libraries 
-
 library("dplyr")
 library("tidyr")
 library("stringr")
@@ -62,7 +60,7 @@ clean <- copy(raw)[# clean admission time and separation time so that it is POSI
 
 # determine the primary key
 # [NOTE] primary key: insurer_id, episode_id, admission_provider_id, admission_date
-clean[, .N, by = .(insurer_id, episode_id, admission_provider_id, admission_date)][N>1]
+clean[, .N, .(insurer_id, episode_id, admission_provider_id, admission_date)][N>1]
 
 # data quality issues ----------------------------------------------------------
 
@@ -112,5 +110,40 @@ clean <- clean[
 # check there are no more missing values in data 
 colSums(is.na(clean))
 clean[, .N, .(unplanned_theatre_visit)]
+
+# feature creation -------------------------------------------------------------
+
+# Create a categorical feature that shows for a given episode, the patient is a/an:
+# 1. Infant if InfantWeight is not missing 
+# 2. Paediatric if Age is between 0-17
+# 3. Adult if Age is between 18-64
+# 4. Senior if Age is 65 and over
+feature <- copy(clean)[
+  , `:=` (
+    episode_patient_age_group = fcase(
+      infant_weight > 0, 'Infant'
+      , age >= 0 & age <= 17, 'Paediatric'
+      , age >= 18 & age <= 64, 'Adult'
+      , age >= 65, 'Senior'
+      , default = 'Data unavailable'
+    )
+  )
+]
+
+# check feature creation is complete
+feature[, .N, .(episode_patient_age_group)]
+
+# create additional features shown in examples that would be useful
+feature <- feature[
+  , `:=` (
+    total_charges_ex_pharm = accommodation_charge + ccu_charges + icu_charge + theatre_charge + prosthesis_charge + other_charges + bundled_charges
+    , days_of_stay = as.numeric(separation_time - admission_time)/24
+    , business_hours_flag = fcase(hour(admission_time) >= 9 & hour(admission_time) < 17, 'Within business hours 9am to 5pm', default = 'Outside of business hours')
+  )
+][
+  , `:=` (
+    charge_per_day_ex_pharm = total_charges_ex_pharm/days_of_stay
+  )
+]
 
 
