@@ -113,6 +113,9 @@ clean[, .N, .(unplanned_theatre_visit)]
 
 # feature creation -------------------------------------------------------------
 
+# establish parameters
+max_admission_date <- max(clean$admission_date, na.rm = T)
+
 # Create a categorical feature that shows for a given episode, the patient is a/an:
 # 1. Infant if InfantWeight is not missing 
 # 2. Paediatric if Age is between 0-17
@@ -139,6 +142,7 @@ feature <- feature[
     total_charges_ex_pharm = accommodation_charge + ccu_charges + icu_charge + theatre_charge + prosthesis_charge + other_charges + bundled_charges
     , days_of_stay = as.numeric(separation_time - admission_time)/24
     , business_hours_flag = fcase(hour(admission_time) >= 9 & hour(admission_time) < 17, 'Within business hours 9am to 5pm', default = 'Outside of business hours')
+    , admission_year_flag = fcase(admission_date <= max_admission_date & admission_date > (max_admission_date- years(1)), 'TY', default = 'LY')
   )
 ][
   , `:=` (
